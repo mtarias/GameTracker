@@ -35,6 +35,9 @@ declare
   base_username text;
   candidate_username text;
   suffix integer := 0;
+  favorites_id uuid;
+  status_key text;
+  pos integer := 0;
 begin
   base_username := regexp_replace(split_part(new.email, '@', 1), '[^a-zA-Z0-9_]', '', 'g');
   if base_username = '' then
@@ -50,7 +53,18 @@ begin
   insert into public.profiles (id, username) values (new.id, candidate_username);
 
   insert into public.custom_lists (user_id, name, icon, color, position, is_builtin)
-  values (new.id, 'Favoritos', 'star', '#eab308', 0, true);
+  values (new.id, 'Favoritos', 'star', '#eab308', 0, true)
+  returning id into favorites_id;
+
+  foreach status_key in array array['playing', 'completed', 'backlog', 'wishlist', 'endless', 'abandoned']
+  loop
+    insert into public.home_cards (user_id, card_type, card_key, position)
+    values (new.id, 'status', status_key, pos);
+    pos := pos + 1;
+  end loop;
+
+  insert into public.home_cards (user_id, card_type, card_key, position)
+  values (new.id, 'custom_list', favorites_id::text, pos);
 
   return new;
 end;
@@ -172,6 +186,27 @@ create policy "custom_list_items_owner_write"
       and custom_lists.user_id = auth.uid()
     )
   );
+
+-- 2d. home_cards: orden unificado de las tarjetas del Home (estados fijos + listas custom)
+create table if not exists public.home_cards (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  card_type text not null check (card_type in ('status', 'custom_list')),
+  card_key text not null, -- valor del enum game_status, o el uuid de custom_lists.id (como texto)
+  position integer not null default 0,
+  unique (user_id, card_type, card_key)
+);
+
+alter table public.home_cards enable row level security;
+
+create policy "home_cards_public_read"
+  on public.home_cards for select
+  using (true);
+
+create policy "home_cards_owner_write"
+  on public.home_cards for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 -- 3. twitch_auth_cache: fila unica con el token vigente de IGDB
 -- Sin RLS abierta: solo el service_role (usado por la Edge Function) puede leer/escribir.

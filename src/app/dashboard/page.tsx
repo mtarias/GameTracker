@@ -1,9 +1,6 @@
-import Link from "next/link";
-import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { STATUS_LABELS, STATUS_ORDER, STATUS_BORDER_COLOR, type GameStatus } from "@/lib/types";
-import { STATUS_ICONS } from "@/lib/status-icons";
-import { getCustomListIcon } from "@/lib/custom-list-icons";
+import { STATUS_LABELS, STATUS_ORDER, STATUS_COLOR_HEX, type GameStatus, type HomeCard } from "@/lib/types";
+import HomeCardsList from "./home-cards-list";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -25,8 +22,7 @@ export default async function DashboardPage() {
   const { data: customLists } = await supabase
     .from("custom_lists")
     .select("*")
-    .eq("user_id", user!.id)
-    .order("position", { ascending: true });
+    .eq("user_id", user!.id);
 
   const listIds = (customLists ?? []).map((l) => l.id);
   const { data: customItems } = await supabase
@@ -39,12 +35,48 @@ export default async function DashboardPage() {
     customCounts[item.custom_list_id] = (customCounts[item.custom_list_id] ?? 0) + 1;
   }
 
-  const favoritesList = customLists?.find((l) => l.is_builtin);
-  const otherLists = customLists?.filter((l) => !l.is_builtin) ?? [];
-  const visibleCustomLists = [
-    ...(favoritesList && (customCounts[favoritesList.id] ?? 0) > 0 ? [favoritesList] : []),
-    ...otherLists,
-  ];
+  const { data: homeCards } = await supabase
+    .from("home_cards")
+    .select("*")
+    .eq("user_id", user!.id)
+    .order("position", { ascending: true });
+
+  const customListsById = new Map((customLists ?? []).map((l) => [l.id, l]));
+
+  const cards: HomeCard[] = (homeCards ?? [])
+    .map((hc): HomeCard | null => {
+      if (hc.card_type === "status") {
+        const status = hc.card_key as GameStatus;
+        return {
+          type: "status",
+          key: status,
+          label: STATUS_LABELS[status],
+          iconKey: status,
+          color: STATUS_COLOR_HEX[status],
+          count: counts[status],
+          href: `/dashboard/${status}`,
+          isBuiltin: true,
+        };
+      }
+
+      const list = customListsById.get(hc.card_key);
+      if (!list) return null;
+
+      const count = customCounts[list.id] ?? 0;
+      if (list.is_builtin && count === 0) return null;
+
+      return {
+        type: "custom_list",
+        key: list.id,
+        label: list.name,
+        iconKey: list.icon,
+        color: list.color,
+        count,
+        href: `/dashboard/lista/${list.id}`,
+        isBuiltin: list.is_builtin,
+      };
+    })
+    .filter((c): c is HomeCard => c !== null);
 
   return (
     <main className="px-4 py-6">
@@ -52,54 +84,7 @@ export default async function DashboardPage() {
 
       {error && <p className="mb-4 text-red-400">Error al cargar: {error.message}</p>}
 
-      <ul className="space-y-3">
-        {STATUS_ORDER.map((status) => {
-          const Icon = STATUS_ICONS[status];
-          return (
-            <li key={status}>
-              <Link
-                href={`/dashboard/${status}`}
-                className={`flex flex-col items-center gap-2 rounded-xl border-2 bg-neutral-900 py-6 ${STATUS_BORDER_COLOR[status]}`}
-              >
-                <Icon size={28} />
-                <span className="text-lg font-medium">
-                  {STATUS_LABELS[status]} <span className="opacity-60">{counts[status]}</span>
-                </span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-
-      <h2 className="mb-3 mt-8 text-sm font-medium text-neutral-500">Mis listas</h2>
-      <ul className="space-y-3">
-        {visibleCustomLists.map((list) => {
-          const Icon = getCustomListIcon(list.icon);
-          return (
-            <li key={list.id}>
-              <Link
-                href={`/dashboard/lista/${list.id}`}
-                className="flex flex-col items-center gap-2 rounded-xl border-2 bg-neutral-900 py-6"
-                style={{ borderColor: list.color }}
-              >
-                <Icon size={28} color={list.color} />
-                <span className="text-lg font-medium">
-                  {list.name} <span className="opacity-60">{customCounts[list.id] ?? 0}</span>
-                </span>
-              </Link>
-            </li>
-          );
-        })}
-        <li>
-          <Link
-            href="/dashboard/lista/nueva"
-            className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-neutral-700 py-4 text-neutral-400"
-          >
-            <Plus size={20} />
-            Nueva lista
-          </Link>
-        </li>
-      </ul>
+      <HomeCardsList cards={cards} />
     </main>
   );
 }

@@ -20,16 +20,16 @@ export async function addGame(params: {
     throw new Error("No autenticado");
   }
 
-  const { data: last } = await supabase
+  const { data: first } = await supabase
     .from("user_games")
     .select("custom_order")
     .eq("user_id", user.id)
     .eq("status", params.status)
-    .order("custom_order", { ascending: false })
+    .order("custom_order", { ascending: true })
     .limit(1)
     .maybeSingle();
 
-  const nextOrder = (last?.custom_order ?? -1) + 1;
+  const nextOrder = (first?.custom_order ?? 0) - 1;
 
   const { data: inserted, error } = await supabase
     .from("user_games")
@@ -110,16 +110,16 @@ export async function moveGameStatus(id: string, newStatus: GameStatus) {
     throw new Error("No autenticado");
   }
 
-  const { data: last } = await supabase
+  const { data: first } = await supabase
     .from("user_games")
     .select("custom_order")
     .eq("user_id", user.id)
     .eq("status", newStatus)
-    .order("custom_order", { ascending: false })
+    .order("custom_order", { ascending: true })
     .limit(1)
     .maybeSingle();
 
-  const nextOrder = (last?.custom_order ?? -1) + 1;
+  const nextOrder = (first?.custom_order ?? 0) - 1;
 
   const { error } = await supabase
     .from("user_games")
@@ -203,17 +203,36 @@ export async function createCustomList(params: { name: string; icon: string; col
 
   const nextPosition = (last?.position ?? -1) + 1;
 
-  const { error } = await supabase.from("custom_lists").insert({
-    user_id: user.id,
-    name: params.name,
-    icon: params.icon,
-    color: params.color,
-    position: nextPosition,
-  });
+  const { data: insertedList, error } = await supabase
+    .from("custom_lists")
+    .insert({
+      user_id: user.id,
+      name: params.name,
+      icon: params.icon,
+      color: params.color,
+      position: nextPosition,
+    })
+    .select()
+    .single();
 
   if (error) {
     throw new Error(error.message);
   }
+
+  const { data: lastCard } = await supabase
+    .from("home_cards")
+    .select("position")
+    .eq("user_id", user.id)
+    .order("position", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  await supabase.from("home_cards").insert({
+    user_id: user.id,
+    card_type: "custom_list",
+    card_key: insertedList.id,
+    position: (lastCard?.position ?? -1) + 1,
+  });
 
   revalidatePath("/dashboard");
 }
@@ -239,10 +258,19 @@ export async function deleteCustomList(id: string) {
     throw new Error(error.message);
   }
 
+  await supabase
+    .from("home_cards")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("card_type", "custom_list")
+    .eq("card_key", id);
+
   revalidatePath("/dashboard");
 }
 
-export async function reorderCustomLists(orderedIds: string[]) {
+export async function reorderHomeCards(
+  orderedCards: { type: "status" | "custom_list"; key: string }[],
+) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -253,12 +281,13 @@ export async function reorderCustomLists(orderedIds: string[]) {
   }
 
   await Promise.all(
-    orderedIds.map((id, index) =>
+    orderedCards.map((card, index) =>
       supabase
-        .from("custom_lists")
+        .from("home_cards")
         .update({ position: index })
-        .eq("id", id)
-        .eq("user_id", user.id),
+        .eq("user_id", user.id)
+        .eq("card_type", card.type)
+        .eq("card_key", card.key),
     ),
   );
 
@@ -288,15 +317,15 @@ export async function toggleCustomListItem(
 
     if (error) throw new Error(error.message);
   } else {
-    const { data: last } = await supabase
+    const { data: first } = await supabase
       .from("custom_list_items")
       .select("custom_order")
       .eq("custom_list_id", customListId)
-      .order("custom_order", { ascending: false })
+      .order("custom_order", { ascending: true })
       .limit(1)
       .maybeSingle();
 
-    const nextOrder = (last?.custom_order ?? -1) + 1;
+    const nextOrder = (first?.custom_order ?? 0) - 1;
 
     const { error } = await supabase
       .from("custom_list_items")

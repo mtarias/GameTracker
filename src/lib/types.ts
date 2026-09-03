@@ -53,6 +53,26 @@ export const STATUS_BORDER_COLOR: Record<GameStatus, string> = {
   abandoned: "border-neutral-600",
 };
 
+export const STATUS_COLOR_HEX: Record<GameStatus, string> = {
+  playing: "#06b6d4",
+  completed: "#22c55e",
+  backlog: "#3b82f6",
+  wishlist: "#a855f7",
+  endless: "#ec4899",
+  abandoned: "#525252",
+};
+
+export interface HomeCard {
+  type: "status" | "custom_list";
+  key: string;
+  label: string;
+  iconKey: string;
+  color: string;
+  count: number;
+  href: string;
+  isBuiltin: boolean;
+}
+
 export type SortMode =
   | "custom"
   | "alphabetical"
