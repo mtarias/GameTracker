@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
-import Image from "next/image";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { STATUS_LABELS, STATUS_ORDER, type GameStatus, type UserGame } from "@/lib/types";
-import { getCustomListIcon } from "@/lib/custom-list-icons";
+import { STATUS_LABELS, STATUS_ORDER, STATUS_COLOR_HEX, type GameStatus, type HomeCard } from "@/lib/types";
+import { getHomeCardIcon } from "@/lib/home-card-icon";
 
 interface Props {
   params: Promise<{ username: string }>;
@@ -24,118 +24,106 @@ export default async function PublicProfilePage({ params }: Props) {
 
   const { data: games } = await supabase
     .from("user_games")
-    .select("*")
-    .eq("user_id", profile.id)
-    .order("custom_order", { ascending: true });
+    .select("status")
+    .eq("user_id", profile.id);
 
-  const gamesByStatus = (games ?? []).reduce<Record<GameStatus, UserGame[]>>(
-    (acc, game) => {
-      const g = game as UserGame;
-      if (g.status) (acc[g.status] ??= []).push(g);
-      return acc;
-    },
-    { playing: [], completed: [], backlog: [], wishlist: [], endless: [], abandoned: [] },
+  const counts = STATUS_ORDER.reduce(
+    (acc, status) => ({ ...acc, [status]: 0 }),
+    {} as Record<GameStatus, number>,
   );
+  for (const g of games ?? []) {
+    if (g.status) counts[g.status as GameStatus] += 1;
+  }
 
   const { data: customLists } = await supabase
     .from("custom_lists")
     .select("*")
+    .eq("user_id", profile.id);
+
+  const listIds = (customLists ?? []).map((l) => l.id);
+  const { data: customItems } = await supabase
+    .from("custom_list_items")
+    .select("custom_list_id")
+    .in("custom_list_id", listIds.length > 0 ? listIds : ["00000000-0000-0000-0000-000000000000"]);
+
+  const customCounts: Record<string, number> = {};
+  for (const item of customItems ?? []) {
+    customCounts[item.custom_list_id] = (customCounts[item.custom_list_id] ?? 0) + 1;
+  }
+
+  const { data: homeCards } = await supabase
+    .from("home_cards")
+    .select("*")
     .eq("user_id", profile.id)
     .order("position", { ascending: true });
 
-  const customListsWithGames = await Promise.all(
-    (customLists ?? []).map(async (list) => {
-      const { data: items } = await supabase
-        .from("custom_list_items")
-        .select("custom_order, user_games(*)")
-        .eq("custom_list_id", list.id)
-        .order("custom_order", { ascending: true });
+  const customListsById = new Map((customLists ?? []).map((l) => [l.id, l]));
 
-      const listGames = (items ?? [])
-        .map((item) => (item as unknown as { user_games: UserGame | null }).user_games)
-        .filter((g): g is UserGame => g !== null);
+  const cards: HomeCard[] = (homeCards ?? [])
+    .map((hc): HomeCard | null => {
+      if (hc.card_type === "status") {
+        const status = hc.card_key as GameStatus;
+        return {
+          type: "status",
+          key: status,
+          label: STATUS_LABELS[status],
+          iconKey: status,
+          color: STATUS_COLOR_HEX[status],
+          count: counts[status],
+          href: `/usuario/${username}/${status}`,
+          isBuiltin: true,
+        };
+      }
 
-      return { list, games: listGames };
-    }),
-  );
+      const list = customListsById.get(hc.card_key);
+      if (!list) return null;
+
+      const count = customCounts[list.id] ?? 0;
+      if (list.is_builtin && count === 0) return null;
+
+      return {
+        type: "custom_list",
+        key: list.id,
+        label: list.name,
+        iconKey: list.icon,
+        color: list.color,
+        count,
+        href: `/usuario/${username}/lista/${list.id}`,
+        isBuiltin: list.is_builtin,
+      };
+    })
+    .filter((c): c is HomeCard => c !== null);
 
   return (
     <main className="min-h-screen bg-neutral-950 px-4 py-8 text-neutral-100">
-      <header className="mx-auto max-w-6xl">
+      <header className="mx-auto max-w-2xl">
         <p className="text-sm uppercase tracking-wider text-neutral-500">Colección de</p>
         <h1 className="text-2xl font-semibold">{profile.username}</h1>
       </header>
 
-      <div className="mx-auto mt-8 max-w-6xl space-y-10">
-        {STATUS_ORDER.map((status) => {
-          const list = gamesByStatus[status];
-          if (list.length === 0) return null;
-
-          return (
-            <section key={status}>
-              <h2 className="mb-3 text-lg font-medium text-neutral-200">
-                {STATUS_LABELS[status]}{" "}
-                <span className="ml-1 text-sm text-neutral-500">{list.length}</span>
-              </h2>
-              <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
-                {list.map((game) => (
-                  <li key={game.id} className="overflow-hidden rounded-md bg-neutral-900">
-                    {game.cover_url ? (
-                      <Image
-                        src={game.cover_url}
-                        alt={game.title}
-                        width={264}
-                        height={352}
-                        className="aspect-[3/4] w-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex aspect-[3/4] w-full items-center justify-center text-xs text-neutral-600">
-                        Sin carátula
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          );
-        })}
-
-        {customListsWithGames.map(({ list, games: listGames }) => {
-          if (listGames.length === 0) return null;
-          const Icon = getCustomListIcon(list.icon);
-
-          return (
-            <section key={list.id}>
-              <h2 className="mb-3 flex items-center gap-2 text-lg font-medium text-neutral-200">
-                <Icon size={18} color={list.color} />
-                {list.name}{" "}
-                <span className="ml-1 text-sm text-neutral-500">{listGames.length}</span>
-              </h2>
-              <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
-                {listGames.map((game) => (
-                  <li key={game.id} className="overflow-hidden rounded-md bg-neutral-900">
-                    {game.cover_url ? (
-                      <Image
-                        src={game.cover_url}
-                        alt={game.title}
-                        width={264}
-                        height={352}
-                        className="aspect-[3/4] w-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex aspect-[3/4] w-full items-center justify-center text-xs text-neutral-600">
-                        Sin carátula
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          );
-        })}
-
-        {(games ?? []).length === 0 && (
+      <div className="mx-auto mt-8 max-w-2xl">
+        {cards.length === 0 ? (
           <p className="text-neutral-500">Este perfil aún no tiene juegos.</p>
+        ) : (
+          <ul className="space-y-3">
+            {cards.map((card) => {
+              const Icon = getHomeCardIcon(card);
+              return (
+                <li key={`${card.type}:${card.key}`}>
+                  <Link
+                    href={card.href}
+                    className="flex flex-col items-center gap-2 rounded-xl border-2 bg-neutral-900 py-6"
+                    style={{ borderColor: card.color }}
+                  >
+                    <Icon size={28} color={card.color} />
+                    <span className="text-lg font-medium">
+                      {card.label} <span className="opacity-60">{card.count}</span>
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
     </main>

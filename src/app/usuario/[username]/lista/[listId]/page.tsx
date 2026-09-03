@@ -1,0 +1,63 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import type { UserGame } from "@/lib/types";
+import PublicGameGrid from "../../public-game-grid";
+
+interface Props {
+  params: Promise<{ username: string; listId: string }>;
+}
+
+export default async function PublicCustomListPage({ params }: Props) {
+  const { username, listId } = await params;
+
+  const supabase = await createClient();
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, username")
+    .eq("username", username)
+    .maybeSingle();
+
+  if (!profile) {
+    notFound();
+  }
+
+  const { data: list } = await supabase
+    .from("custom_lists")
+    .select("*")
+    .eq("id", listId)
+    .eq("user_id", profile.id)
+    .maybeSingle();
+
+  if (!list) {
+    notFound();
+  }
+
+  const { data: items } = await supabase
+    .from("custom_list_items")
+    .select("user_games(*)")
+    .eq("custom_list_id", listId);
+
+  const games = (items ?? [])
+    .map((item) => (item as unknown as { user_games: UserGame | null }).user_games)
+    .filter((g): g is UserGame => g !== null);
+
+  return (
+    <main className="min-h-screen bg-neutral-950 px-4 py-8 text-neutral-100">
+      <div className="mx-auto max-w-2xl">
+        <Link
+          href={`/usuario/${username}`}
+          className="mb-4 inline-flex items-center gap-1 text-sm text-neutral-400"
+        >
+          <ArrowLeft size={16} />
+          Volver
+        </Link>
+        <h1 className="mb-4 text-xl font-semibold">{list.name}</h1>
+
+        <PublicGameGrid games={games} />
+      </div>
+    </main>
+  );
+}
