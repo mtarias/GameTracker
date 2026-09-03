@@ -3,6 +3,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { STATUS_LABELS, STATUS_ORDER, STATUS_COLOR_HEX, type GameStatus, type HomeCard } from "@/lib/types";
 import { getHomeCardIcon } from "@/lib/home-card-icon";
+import BottomNav from "@/app/dashboard/bottom-nav";
+import ShareButton from "./share-button";
 
 interface Props {
   params: Promise<{ username: string }>;
@@ -21,6 +23,11 @@ export default async function PublicProfilePage({ params }: Props) {
   if (!profile) {
     notFound();
   }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const isOwner = user?.id === profile.id;
 
   const { data: games } = await supabase
     .from("user_games")
@@ -95,10 +102,11 @@ export default async function PublicProfilePage({ params }: Props) {
     .filter((c): c is HomeCard => c !== null);
 
   return (
-    <main className="min-h-screen bg-neutral-950 px-4 py-8 text-neutral-100">
-      <header className="mx-auto max-w-2xl">
+    <main className={`min-h-screen bg-neutral-950 px-4 py-8 text-neutral-100 ${isOwner ? "pb-24" : ""}`}>
+      <header className="mx-auto flex max-w-2xl flex-col items-center gap-2 text-center">
         <p className="text-sm uppercase tracking-wider text-neutral-500">Colección de</p>
         <h1 className="text-2xl font-semibold">{profile.username}</h1>
+        {isOwner && <ShareButton />}
       </header>
 
       <div className="mx-auto mt-8 max-w-2xl">
@@ -126,6 +134,8 @@ export default async function PublicProfilePage({ params }: Props) {
           </ul>
         )}
       </div>
+
+      {isOwner && <BottomNav username={username} />}
     </main>
   );
 }

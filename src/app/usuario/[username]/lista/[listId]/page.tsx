@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import type { UserGame } from "@/lib/types";
+import BottomNav from "@/app/dashboard/bottom-nav";
 import PublicGameGrid from "../../public-game-grid";
 
 interface Props {
@@ -35,6 +36,11 @@ export default async function PublicCustomListPage({ params }: Props) {
     notFound();
   }
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const isOwner = user?.id === profile.id;
+
   const { data: items } = await supabase
     .from("custom_list_items")
     .select("user_games(*)")
@@ -45,7 +51,7 @@ export default async function PublicCustomListPage({ params }: Props) {
     .filter((g): g is UserGame => g !== null);
 
   return (
-    <main className="min-h-screen bg-neutral-950 px-4 py-8 text-neutral-100">
+    <main className={`min-h-screen bg-neutral-950 px-4 py-8 text-neutral-100 ${isOwner ? "pb-24" : ""}`}>
       <div className="mx-auto max-w-2xl">
         <Link
           href={`/usuario/${username}`}
@@ -58,6 +64,8 @@ export default async function PublicCustomListPage({ params }: Props) {
 
         <PublicGameGrid games={games} />
       </div>
+
+      {isOwner && <BottomNav username={username} />}
     </main>
   );
 }
