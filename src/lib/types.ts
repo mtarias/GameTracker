@@ -37,3 +37,13 @@ export const STATUS_ORDER: GameStatus[] = [
   "endless",
   "abandoned",
 ];
+
+export const STATUS_BORDER_COLOR: Record<GameStatus, string> = {
+  playing: "border-cyan-500",
+  completed: "border-green-500",
+  backlog: "border-blue-500",
+  wishlist: "border-purple-500",
+  endless: "border-pink-500",
+  abandoned: "border-neutral-600",
+};
+

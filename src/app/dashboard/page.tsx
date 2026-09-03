@@ -1,9 +1,7 @@
-import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import type { UserGame } from "@/lib/types";
-import LogoutButton from "./logout-button";
-import GameList from "./game-list";
-import GameSearch from "./game-search";
+import { STATUS_LABELS, STATUS_ORDER, STATUS_BORDER_COLOR, type GameStatus } from "@/lib/types";
+import { STATUS_ICONS } from "@/lib/status-icons";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -11,33 +9,41 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    redirect("/login");
-  }
-
   const { data: games, error } = await supabase
     .from("user_games")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("custom_order", { ascending: true });
+    .select("status")
+    .eq("user_id", user!.id);
+
+  const counts = STATUS_ORDER.reduce(
+    (acc, status) => ({ ...acc, [status]: 0 }),
+    {} as Record<GameStatus, number>,
+  );
+  for (const g of games ?? []) counts[g.status as GameStatus] += 1;
 
   return (
-    <main className="min-h-screen bg-neutral-950 px-4 py-6 text-neutral-100">
-      <header className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Mi colección</h1>
-        <LogoutButton />
-      </header>
+    <main className="px-4 py-6">
+      <h1 className="mb-6 text-xl font-semibold">Mi colección</h1>
 
-      {error ? (
-        <p className="mt-6 text-red-400">Error al cargar los juegos: {error.message}</p>
-      ) : (
-        <>
-          <div className="mt-6">
-            <GameSearch />
-          </div>
-          <GameList games={(games ?? []) as UserGame[]} />
-        </>
-      )}
+      {error && <p className="mb-4 text-red-400">Error al cargar: {error.message}</p>}
+
+      <ul className="space-y-3">
+        {STATUS_ORDER.map((status) => {
+          const Icon = STATUS_ICONS[status];
+          return (
+            <li key={status}>
+              <Link
+                href={`/dashboard/${status}`}
+                className={`flex flex-col items-center gap-2 rounded-xl border-2 bg-neutral-900 py-6 ${STATUS_BORDER_COLOR[status]}`}
+              >
+                <Icon size={28} />
+                <span className="text-lg font-medium">
+                  {STATUS_LABELS[status]} <span className="opacity-60">{counts[status]}</span>
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
     </main>
   );
 }

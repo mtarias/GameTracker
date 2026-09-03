@@ -3,14 +3,17 @@
 import Image from "next/image";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { GripVertical, X } from "lucide-react";
 import type { UserGame } from "@/lib/types";
 
 interface Props {
   game: UserGame;
+  editMode: boolean;
   draggable: boolean;
+  onRemove: (id: string) => void;
 }
 
-export default function SortableGameCard({ game, draggable }: Props) {
+export default function SortableGameCard({ game, editMode, draggable, onRemove }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: game.id,
     disabled: !draggable,
@@ -26,8 +29,7 @@ export default function SortableGameCard({ game, draggable }: Props) {
     <li
       ref={setNodeRef}
       style={style}
-      {...(draggable ? { ...attributes, ...listeners } : {})}
-      className={`overflow-hidden rounded-md bg-neutral-900 ${draggable ? "cursor-grab touch-none active:cursor-grabbing" : ""}`}
+      className="relative overflow-hidden rounded-md bg-neutral-900"
     >
       {game.cover_url ? (
         <Image
@@ -43,6 +45,26 @@ export default function SortableGameCard({ game, draggable }: Props) {
         </div>
       )}
       <p className="truncate px-2 py-1.5 text-sm text-neutral-200">{game.title}</p>
+
+      {editMode && (
+        <button
+          onClick={() => onRemove(game.id)}
+          aria-label={`Quitar ${game.title}`}
+          className="absolute right-1 top-1 rounded-full bg-neutral-950/80 p-1 text-neutral-100"
+        >
+          <X size={16} />
+        </button>
+      )}
+
+      {editMode && draggable && (
+        <span
+          {...attributes}
+          {...listeners}
+          className="absolute left-1 top-1 touch-none rounded-full bg-neutral-950/80 p-1 text-neutral-100 active:cursor-grabbing"
+        >
+          <GripVertical size={16} />
+        </span>
+      )}
     </li>
   );
 }

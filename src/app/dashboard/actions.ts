@@ -69,3 +69,26 @@ export async function reorderGames(params: { status: GameStatus; orderedIds: str
 
   revalidatePath("/dashboard");
 }
+
+export async function removeGame(id: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("No autenticado");
+  }
+
+  const { error } = await supabase
+    .from("user_games")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/dashboard");
+}
