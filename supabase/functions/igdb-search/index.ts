@@ -80,12 +80,11 @@ Deno.serve(async (req: Request) => {
 
     // Escapar comillas dobles del input para evitar romper la query Apicalypse.
     const safeSearch = search.replace(/"/g, '\\"');
-    // category: 0 main_game, 8 remake, 9 remaster, 10 expanded_game, 11 port.
-    // Excluye asi dlc_addon(1), expansion(2), bundle(3), standalone_expansion(4), mod(5), episode(6), season(7).
-    const categoryFilter = includeDlc ? "" : "where category = (0,8,9,10,11); ";
+    // Se pide de mas (40) porque el filtro de categoria se aplica despues, en JS.
+    const fetchLimit = includeDlc ? 20 : 40;
     const apicalypseQuery =
-      `search "${safeSearch}"; fields name,cover.url,first_release_date,platforms.name; ` +
-      `${categoryFilter}limit 20; offset ${pageOffset};`;
+      `search "${safeSearch}"; fields name,cover.url,first_release_date,platforms.name,category; ` +
+      `limit ${fetchLimit}; offset ${pageOffset};`;
 
     const igdbResponse = await fetch("https://api.igdb.com/v4/games", {
       method: "POST",
@@ -104,7 +103,16 @@ Deno.serve(async (req: Request) => {
 
     const games = await igdbResponse.json();
 
-    const results = games.map((game: {
+    // category: 0 main_game, 8 remake, 9 remaster, 10 expanded_game, 11 port.
+    // Excluye asi dlc_addon(1), expansion(2), bundle(3), standalone_expansion(4), mod(5), episode(6), season(7).
+    const allowedCategories = [0, 8, 9, 10, 11];
+    const filtered = includeDlc
+      ? games
+      : games.filter((game: { category?: number }) =>
+          game.category === undefined || allowedCategories.includes(game.category),
+        );
+
+    const results = filtered.slice(0, 20).map((game: {
       id: number;
       name: string;
       cover?: { url: string };
