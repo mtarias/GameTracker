@@ -7,6 +7,13 @@ export interface IgdbSearchResult {
   release_date: string | null;
 }
 
+export interface IgdbGameDetail extends IgdbSearchResult {
+  description: string | null;
+  screenshots: string[];
+  platforms: string[];
+  video_url: string | null;
+}
+
 export async function searchIgdbGames(search: string): Promise<IgdbSearchResult[]> {
   const supabase = createClient();
 
@@ -20,4 +27,22 @@ export async function searchIgdbGames(search: string): Promise<IgdbSearchResult[
   }
 
   return data ?? [];
+}
+
+export async function getIgdbGameDetail(igdb_id: number): Promise<IgdbGameDetail> {
+  const supabase = createClient();
+
+  const { data, error } = await supabase.functions.invoke<IgdbGameDetail>(
+    "igdb-game-detail",
+    { body: { igdb_id } },
+  );
+
+  if (error) {
+    throw error;
+  }
+  if (!data) {
+    throw new Error("Juego no encontrado en IGDB");
+  }
+
+  return data;
 }

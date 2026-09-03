@@ -15,7 +15,13 @@ export interface UserGame {
   status: GameStatus;
   start_date: string | null;
   end_date: string | null;
+  release_date: string | null;
+  story_length_hours: number | null;
   completion_percentage: number | null;
+  description: string | null;
+  screenshots: string[] | null;
+  platforms: string[] | null;
+  video_url: string | null;
   custom_order: number;
   created_at: string;
 }
@@ -46,4 +52,23 @@ export const STATUS_BORDER_COLOR: Record<GameStatus, string> = {
   endless: "border-pink-500",
   abandoned: "border-neutral-600",
 };
+
+export type SortMode =
+  | "custom"
+  | "alphabetical"
+  | "alphabetical_desc"
+  | "recently_completed"
+  | "release_date"
+  | "story_length";
+
+export const SORT_LABELS: Record<SortMode, string> = {
+  custom: "Manual",
+  alphabetical: "Alfabético (A-Z)",
+  alphabetical_desc: "Alfabético (Z-A)",
+  recently_completed: "Completado más reciente",
+  release_date: "Fecha de lanzamiento",
+  story_length: "Duración de historia",
+};
+
+export type ViewMode = "grid" | "compact" | "list";
 

@@ -10,20 +10,69 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, rectSortingStrategy } from "@dnd-kit/sortable";
-import { Pencil, Check } from "lucide-react";
-import type { GameStatus, UserGame } from "@/lib/types";
+import { Pencil, Check, LayoutGrid, Grid3x3, List as ListIcon } from "lucide-react";
+import { SORT_LABELS, type GameStatus, type SortMode, type UserGame, type ViewMode } from "@/lib/types";
 import { reorderGames, removeGame } from "./actions";
 import SortableGameCard from "./sortable-game-card";
-
-type SortMode = "custom" | "alphabetical";
 
 interface Props {
   status: GameStatus;
   games: UserGame[];
 }
 
+const SORT_OPTIONS: SortMode[] = [
+  "custom",
+  "alphabetical",
+  "alphabetical_desc",
+  "recently_completed",
+  "release_date",
+  "story_length",
+];
+
+const VIEW_ICONS: { mode: ViewMode; icon: typeof LayoutGrid }[] = [
+  { mode: "grid", icon: LayoutGrid },
+  { mode: "compact", icon: Grid3x3 },
+  { mode: "list", icon: ListIcon },
+];
+
+function sortGames(games: UserGame[], mode: SortMode): UserGame[] {
+  const withNullsLast = <T extends string | number>(
+    getValue: (g: UserGame) => T | null,
+    ascending: boolean,
+  ) => {
+    return [...games].sort((a, b) => {
+      const va = getValue(a);
+      const vb = getValue(b);
+      if (va === null && vb === null) return 0;
+      if (va === null) return 1;
+      if (vb === null) return -1;
+      return ascending
+        ? va < vb ? -1 : va > vb ? 1 : 0
+        : va < vb ? 1 : va > vb ? -1 : 0;
+    });
+  };
+
+  switch (mode) {
+    case "alphabetical":
+      return [...games].sort((a, b) => a.title.localeCompare(b.title));
+    case "alphabetical_desc":
+      return [...games].sort((a, b) => b.title.localeCompare(a.title));
+    case "recently_completed":
+      return withNullsLast((g) => g.end_date, false);
+    case "release_date":
+      return withNullsLast((g) => g.release_date, false);
+    case "story_length":
+      return withNullsLast((g) => g.story_length_hours, true);
+    case "custom":
+    default:
+      return [...games].sort((a, b) => a.custom_order - b.custom_order);
+  }
+}
+
 export default function StatusGameGrid({ status, games }: Props) {
   const [sortMode, setSortMode] = useState<SortMode>("custom");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [orderedGames, setOrderedGames] = useState<UserGame[]>([]);
   const [, startTransition] = useTransition();
@@ -32,12 +81,7 @@ export default function StatusGameGrid({ status, games }: Props) {
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
 
-  const sortedGames = useMemo(() => {
-    if (sortMode === "alphabetical") {
-      return [...games].sort((a, b) => a.title.localeCompare(b.title));
-    }
-    return [...games].sort((a, b) => a.custom_order - b.custom_order);
-  }, [games, sortMode]);
+  const sortedGames = useMemo(() => sortGames(games, sortMode), [games, sortMode]);
 
   useEffect(() => {
     setOrderedGames(sortedGames);
@@ -66,24 +110,58 @@ export default function StatusGameGrid({ status, games }: Props) {
     });
   }
 
+  const gridClass = {
+    grid: "grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5",
+    compact: "grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8",
+    list: "flex flex-col gap-2",
+  }[viewMode];
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-neutral-500">Orden:</span>
+      <div className="flex items-center justify-between gap-2">
+        <div className="relative">
           <button
-            onClick={() => setSortMode("custom")}
-            className={sortMode === "custom" ? "text-neutral-100" : "text-neutral-500"}
+            onClick={() => setSortMenuOpen((v) => !v)}
+            className="rounded-md border border-neutral-700 px-2.5 py-1 text-sm text-neutral-200"
           >
-            Manual
+            Ordenar: {SORT_LABELS[sortMode]}
           </button>
-          <span className="text-neutral-700">·</span>
-          <button
-            onClick={() => setSortMode("alphabetical")}
-            className={sortMode === "alphabetical" ? "text-neutral-100" : "text-neutral-500"}
-          >
-            Alfabético
-          </button>
+          {sortMenuOpen && (
+            <ul className="absolute left-0 top-full z-20 mt-1 w-56 rounded-md border border-neutral-700 bg-neutral-900 py-1 shadow-lg">
+              {SORT_OPTIONS.map((mode) => (
+                <li key={mode}>
+                  <button
+                    onClick={() => {
+                      setSortMode(mode);
+                      setSortMenuOpen(false);
+                    }}
+                    className={`block w-full px-3 py-1.5 text-left text-sm ${
+                      mode === sortMode ? "text-neutral-100" : "text-neutral-400"
+                    } hover:bg-neutral-800`}
+                  >
+                    {SORT_LABELS[mode]}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1">
+          {VIEW_ICONS.map(({ mode, icon: Icon }) => (
+            <button
+              key={mode}
+              onClick={() => setViewMode(mode)}
+              aria-label={`Vista ${mode}`}
+              className={`rounded-md border p-1.5 ${
+                viewMode === mode
+                  ? "border-neutral-100 text-neutral-100"
+                  : "border-neutral-700 text-neutral-500"
+              }`}
+            >
+              <Icon size={16} />
+            </button>
+          ))}
         </div>
 
         <button
@@ -104,13 +182,14 @@ export default function StatusGameGrid({ status, games }: Props) {
           onDragEnd={handleDragEnd}
         >
           <SortableContext items={orderedGames.map((g) => g.id)} strategy={rectSortingStrategy}>
-            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            <ul className={gridClass}>
               {orderedGames.map((game) => (
                 <SortableGameCard
                   key={game.id}
                   game={game}
                   editMode={editMode}
                   draggable={canDrag}
+                  viewMode={viewMode}
                   onRemove={handleRemove}
                 />
               ))}

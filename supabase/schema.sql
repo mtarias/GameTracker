@@ -71,7 +71,13 @@ create table if not exists public.user_games (
   status public.game_status not null default 'backlog',
   start_date date,
   end_date date,
+  release_date date,
+  story_length_hours numeric(5,1),
   completion_percentage integer check (completion_percentage between 0 and 100),
+  description text,
+  screenshots text[],
+  platforms text[],
+  video_url text,
   custom_order integer not null default 0,
   created_at timestamptz not null default now()
 );
