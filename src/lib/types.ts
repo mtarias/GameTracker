@@ -12,7 +12,7 @@ export interface UserGame {
   igdb_id: number;
   title: string;
   cover_url: string | null;
-  status: GameStatus;
+  status: GameStatus | null;
   start_date: string | null;
   end_date: string | null;
   release_date: string | null;

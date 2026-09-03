@@ -86,7 +86,7 @@ create table if not exists public.user_games (
   igdb_id integer not null,
   title text not null,
   cover_url text,
-  status public.game_status not null default 'backlog',
+  status public.game_status,
   start_date date,
   end_date date,
   release_date date,

@@ -31,7 +31,7 @@ export default async function PublicProfilePage({ params }: Props) {
   const gamesByStatus = (games ?? []).reduce<Record<GameStatus, UserGame[]>>(
     (acc, game) => {
       const g = game as UserGame;
-      (acc[g.status] ??= []).push(g);
+      if (g.status) (acc[g.status] ??= []).push(g);
       return acc;
     },
     { playing: [], completed: [], backlog: [], wishlist: [], endless: [], abandoned: [] },

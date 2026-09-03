@@ -5,6 +5,7 @@ export interface IgdbSearchResult {
   title: string;
   cover_url: string | null;
   release_date: string | null;
+  platforms: string[];
 }
 
 export interface IgdbGameDetail extends IgdbSearchResult {
@@ -14,12 +15,16 @@ export interface IgdbGameDetail extends IgdbSearchResult {
   video_url: string | null;
 }
 
-export async function searchIgdbGames(search: string): Promise<IgdbSearchResult[]> {
+export async function searchIgdbGames(
+  search: string,
+  offset = 0,
+  includeDlc = false,
+): Promise<IgdbSearchResult[]> {
   const supabase = createClient();
 
   const { data, error } = await supabase.functions.invoke<IgdbSearchResult[]>(
     "igdb-search",
-    { body: { search } },
+    { body: { search, offset, includeDlc } },
   );
 
   if (error) {

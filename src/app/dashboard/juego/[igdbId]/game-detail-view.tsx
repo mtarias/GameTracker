@@ -118,8 +118,23 @@ export default function GameDetailView({ igdbId, existingGame, customLists, init
     });
   }
 
+  async function ensureEntryId(): Promise<string> {
+    if (entryId) return entryId;
+    if (!detail) throw new Error("Detalle no cargado");
+
+    const inserted = await addGame({
+      igdb_id: detail.igdb_id,
+      title: detail.title,
+      cover_url: detail.cover_url,
+      release_date: detail.release_date,
+      status: null,
+    });
+    setEntryId(inserted.id);
+    return inserted.id;
+  }
+
   function handleToggleFavorite() {
-    if (!entryId || !favoritesList) return;
+    if (!favoritesList) return;
     const next = !isFavorite;
     setApplyingListId(favoritesList.id);
     setMemberships((prev) => {
@@ -130,7 +145,8 @@ export default function GameDetailView({ igdbId, existingGame, customLists, init
     });
     startTransition(async () => {
       try {
-        await toggleFavorite(entryId, !next);
+        const id = await ensureEntryId();
+        await toggleFavorite(id, !next);
       } finally {
         setApplyingListId(null);
       }
@@ -138,7 +154,6 @@ export default function GameDetailView({ igdbId, existingGame, customLists, init
   }
 
   function handleToggleCustomList(listId: string) {
-    if (!entryId) return;
     const isMember = memberships.has(listId);
     setApplyingListId(listId);
     setMemberships((prev) => {
@@ -149,7 +164,8 @@ export default function GameDetailView({ igdbId, existingGame, customLists, init
     });
     startTransition(async () => {
       try {
-        await toggleCustomListItem(listId, entryId, isMember);
+        const id = await ensureEntryId();
+        await toggleCustomListItem(listId, id, isMember);
       } finally {
         setApplyingListId(null);
       }
@@ -184,7 +200,7 @@ export default function GameDetailView({ igdbId, existingGame, customLists, init
         )}
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-semibold">{detail.title}</h1>
-          {entryId && favoritesList && (
+          {favoritesList && (
             <button
               onClick={handleToggleFavorite}
               disabled={applyingListId === favoritesList.id}
@@ -311,7 +327,7 @@ export default function GameDetailView({ igdbId, existingGame, customLists, init
         )}
       </div>
 
-      {entryId && otherLists.length > 0 && (
+      {otherLists.length > 0 && (
         <div>
           <p className="mb-2 text-sm text-neutral-500">Mis listas</p>
           <div className="flex flex-wrap gap-2">

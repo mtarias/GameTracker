@@ -17,7 +17,9 @@ export default async function DashboardPage() {
     (acc, status) => ({ ...acc, [status]: 0 }),
     {} as Record<GameStatus, number>,
   );
-  for (const g of games ?? []) counts[g.status as GameStatus] += 1;
+  for (const g of games ?? []) {
+    if (g.status) counts[g.status as GameStatus] += 1;
+  }
 
   const { data: customLists } = await supabase
     .from("custom_lists")

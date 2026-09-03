@@ -9,7 +9,7 @@ export async function addGame(params: {
   title: string;
   cover_url: string | null;
   release_date: string | null;
-  status: GameStatus;
+  status: GameStatus | null;
 }) {
   const supabase = await createClient();
   const {
@@ -20,16 +20,19 @@ export async function addGame(params: {
     throw new Error("No autenticado");
   }
 
-  const { data: first } = await supabase
-    .from("user_games")
-    .select("custom_order")
-    .eq("user_id", user.id)
-    .eq("status", params.status)
-    .order("custom_order", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  let nextOrder = 0;
+  if (params.status) {
+    const { data: first } = await supabase
+      .from("user_games")
+      .select("custom_order")
+      .eq("user_id", user.id)
+      .eq("status", params.status)
+      .order("custom_order", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
-  const nextOrder = (first?.custom_order ?? 0) - 1;
+    nextOrder = (first?.custom_order ?? 0) - 1;
+  }
 
   const { data: inserted, error } = await supabase
     .from("user_games")
