@@ -159,3 +159,175 @@ export async function updateGameCompletion(
 
   revalidatePath("/dashboard");
 }
+
+export async function reorderCustomListItems(customListId: string, orderedUserGameIds: string[]) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("No autenticado");
+  }
+
+  await Promise.all(
+    orderedUserGameIds.map((userGameId, index) =>
+      supabase
+        .from("custom_list_items")
+        .update({ custom_order: index })
+        .eq("custom_list_id", customListId)
+        .eq("user_game_id", userGameId),
+    ),
+  );
+
+  revalidatePath("/dashboard");
+}
+
+export async function createCustomList(params: { name: string; icon: string; color: string }) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("No autenticado");
+  }
+
+  const { data: last } = await supabase
+    .from("custom_lists")
+    .select("position")
+    .eq("user_id", user.id)
+    .order("position", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const nextPosition = (last?.position ?? -1) + 1;
+
+  const { error } = await supabase.from("custom_lists").insert({
+    user_id: user.id,
+    name: params.name,
+    icon: params.icon,
+    color: params.color,
+    position: nextPosition,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/dashboard");
+}
+
+export async function deleteCustomList(id: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("No autenticado");
+  }
+
+  const { error } = await supabase
+    .from("custom_lists")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .eq("is_builtin", false);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/dashboard");
+}
+
+export async function reorderCustomLists(orderedIds: string[]) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("No autenticado");
+  }
+
+  await Promise.all(
+    orderedIds.map((id, index) =>
+      supabase
+        .from("custom_lists")
+        .update({ position: index })
+        .eq("id", id)
+        .eq("user_id", user.id),
+    ),
+  );
+
+  revalidatePath("/dashboard");
+}
+
+export async function toggleCustomListItem(
+  customListId: string,
+  userGameId: string,
+  isMember: boolean,
+) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("No autenticado");
+  }
+
+  if (isMember) {
+    const { error } = await supabase
+      .from("custom_list_items")
+      .delete()
+      .eq("custom_list_id", customListId)
+      .eq("user_game_id", userGameId);
+
+    if (error) throw new Error(error.message);
+  } else {
+    const { data: last } = await supabase
+      .from("custom_list_items")
+      .select("custom_order")
+      .eq("custom_list_id", customListId)
+      .order("custom_order", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const nextOrder = (last?.custom_order ?? -1) + 1;
+
+    const { error } = await supabase
+      .from("custom_list_items")
+      .insert({ custom_list_id: customListId, user_game_id: userGameId, custom_order: nextOrder });
+
+    if (error) throw new Error(error.message);
+  }
+
+  revalidatePath("/dashboard");
+}
+
+export async function toggleFavorite(userGameId: string, isFavorite: boolean) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("No autenticado");
+  }
+
+  const { data: favList } = await supabase
+    .from("custom_lists")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("is_builtin", true)
+    .maybeSingle();
+
+  if (!favList) {
+    throw new Error("No se encontró la lista de Favoritos");
+  }
+
+  await toggleCustomListItem(favList.id, userGameId, isFavorite);
+}

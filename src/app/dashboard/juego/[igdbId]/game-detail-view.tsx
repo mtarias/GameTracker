@@ -3,15 +3,25 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, Star } from "lucide-react";
 import { getIgdbGameDetail, type IgdbGameDetail } from "@/lib/igdb";
-import { STATUS_LABELS, STATUS_ORDER, type GameStatus, type UserGame } from "@/lib/types";
+import { STATUS_LABELS, STATUS_ORDER, type CustomList, type GameStatus, type UserGame } from "@/lib/types";
 import { STATUS_ICONS } from "@/lib/status-icons";
-import { addGame, moveGameStatus, removeGame, updateGameCompletion } from "../../actions";
+import { getCustomListIcon } from "@/lib/custom-list-icons";
+import {
+  addGame,
+  moveGameStatus,
+  removeGame,
+  updateGameCompletion,
+  toggleFavorite,
+  toggleCustomListItem,
+} from "../../actions";
 
 interface Props {
   igdbId: number;
   existingGame: UserGame | null;
+  customLists: CustomList[];
+  initialMemberships: string[];
 }
 
 function youtubeEmbedUrl(videoUrl: string) {
@@ -19,7 +29,7 @@ function youtubeEmbedUrl(videoUrl: string) {
   return id ? `https://www.youtube.com/embed/${id}` : null;
 }
 
-export default function GameDetailView({ igdbId, existingGame }: Props) {
+export default function GameDetailView({ igdbId, existingGame, customLists, initialMemberships }: Props) {
   const router = useRouter();
   const [detail, setDetail] = useState<IgdbGameDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -28,6 +38,12 @@ export default function GameDetailView({ igdbId, existingGame }: Props) {
   const [entryId, setEntryId] = useState<string | null>(existingGame?.id ?? null);
   const [currentStatus, setCurrentStatus] = useState<GameStatus | null>(existingGame?.status ?? null);
   const [applyingStatus, setApplyingStatus] = useState<GameStatus | null>(null);
+  const [memberships, setMemberships] = useState<Set<string>>(new Set(initialMemberships));
+  const [applyingListId, setApplyingListId] = useState<string | null>(null);
+
+  const favoritesList = customLists.find((l) => l.is_builtin);
+  const otherLists = customLists.filter((l) => !l.is_builtin);
+  const isFavorite = favoritesList ? memberships.has(favoritesList.id) : false;
   const [endDate, setEndDate] = useState(existingGame?.end_date ?? "");
   const [storyLength, setStoryLength] = useState(
     existingGame?.story_length_hours?.toString() ?? "",
@@ -102,12 +118,54 @@ export default function GameDetailView({ igdbId, existingGame }: Props) {
     });
   }
 
+  function handleToggleFavorite() {
+    if (!entryId || !favoritesList) return;
+    const next = !isFavorite;
+    setApplyingListId(favoritesList.id);
+    setMemberships((prev) => {
+      const copy = new Set(prev);
+      if (next) copy.add(favoritesList.id);
+      else copy.delete(favoritesList.id);
+      return copy;
+    });
+    startTransition(async () => {
+      try {
+        await toggleFavorite(entryId, !next);
+      } finally {
+        setApplyingListId(null);
+      }
+    });
+  }
+
+  function handleToggleCustomList(listId: string) {
+    if (!entryId) return;
+    const isMember = memberships.has(listId);
+    setApplyingListId(listId);
+    setMemberships((prev) => {
+      const copy = new Set(prev);
+      if (isMember) copy.delete(listId);
+      else copy.add(listId);
+      return copy;
+    });
+    startTransition(async () => {
+      try {
+        await toggleCustomListItem(listId, entryId, isMember);
+      } finally {
+        setApplyingListId(null);
+      }
+    });
+  }
+
   if (loadError) {
     return <p className="text-red-400">{loadError}</p>;
   }
 
   if (!detail) {
-    return <p className="text-neutral-500">Cargando...</p>;
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <Loader2 size={28} className="animate-spin text-neutral-500" />
+      </div>
+    );
   }
 
   const embedUrl = detail.video_url ? youtubeEmbedUrl(detail.video_url) : null;
@@ -124,7 +182,21 @@ export default function GameDetailView({ igdbId, existingGame }: Props) {
             className="rounded-lg"
           />
         )}
-        <h1 className="text-xl font-semibold">{detail.title}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-semibold">{detail.title}</h1>
+          {entryId && favoritesList && (
+            <button
+              onClick={handleToggleFavorite}
+              disabled={applyingListId === favoritesList.id}
+              aria-label="Favorito"
+            >
+              <Star
+                size={22}
+                className={isFavorite ? "fill-yellow-400 text-yellow-400" : "text-neutral-500"}
+              />
+            </button>
+          )}
+        </div>
         {detail.release_date && (
           <p className="text-sm text-neutral-500">Lanzamiento: {detail.release_date}</p>
         )}
@@ -238,6 +310,33 @@ export default function GameDetailView({ igdbId, existingGame }: Props) {
           </button>
         )}
       </div>
+
+      {entryId && otherLists.length > 0 && (
+        <div>
+          <p className="mb-2 text-sm text-neutral-500">Mis listas</p>
+          <div className="flex flex-wrap gap-2">
+            {otherLists.map((list) => {
+              const Icon = getCustomListIcon(list.icon);
+              const active = memberships.has(list.id);
+              const applying = applyingListId === list.id;
+              return (
+                <button
+                  key={list.id}
+                  onClick={() => handleToggleCustomList(list.id)}
+                  disabled={applying}
+                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs disabled:opacity-60 ${
+                    active ? "border-neutral-100 text-neutral-100" : "border-neutral-700 text-neutral-400"
+                  }`}
+                  style={active ? { borderColor: list.color, color: list.color } : undefined}
+                >
+                  {applying ? <Loader2 size={14} className="animate-spin" /> : <Icon size={14} />}
+                  {list.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {entryId && (
         <div className="space-y-3 rounded-md border border-neutral-800 p-3">

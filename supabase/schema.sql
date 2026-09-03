@@ -48,6 +48,10 @@ begin
   end loop;
 
   insert into public.profiles (id, username) values (new.id, candidate_username);
+
+  insert into public.custom_lists (user_id, name, icon, color, position, is_builtin)
+  values (new.id, 'Favoritos', 'star', '#eab308', 0, true);
+
   return new;
 end;
 $$;
@@ -104,6 +108,70 @@ create policy "user_games_owner_update"
 create policy "user_games_owner_delete"
   on public.user_games for delete
   using (auth.uid() = user_id);
+
+-- 2b. custom_lists: colecciones propias del usuario (favoritos, speedruns, etc)
+-- Un juego puede estar en varias listas custom a la vez, a diferencia de "status".
+create table if not exists public.custom_lists (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  name text not null,
+  icon text not null default 'list',
+  color text not null default '#a3a3a3',
+  position integer not null default 0,
+  is_builtin boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+alter table public.custom_lists enable row level security;
+
+create policy "custom_lists_public_read"
+  on public.custom_lists for select
+  using (true);
+
+create policy "custom_lists_owner_insert"
+  on public.custom_lists for insert
+  with check (auth.uid() = user_id);
+
+create policy "custom_lists_owner_update"
+  on public.custom_lists for update
+  using (auth.uid() = user_id);
+
+create policy "custom_lists_owner_delete"
+  on public.custom_lists for delete
+  using (auth.uid() = user_id and is_builtin = false);
+
+-- 2c. custom_list_items: relacion muchos-a-muchos entre custom_lists y user_games
+create table if not exists public.custom_list_items (
+  id uuid primary key default gen_random_uuid(),
+  custom_list_id uuid not null references public.custom_lists (id) on delete cascade,
+  user_game_id uuid not null references public.user_games (id) on delete cascade,
+  custom_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  unique (custom_list_id, user_game_id)
+);
+
+alter table public.custom_list_items enable row level security;
+
+create policy "custom_list_items_public_read"
+  on public.custom_list_items for select
+  using (true);
+
+create policy "custom_list_items_owner_write"
+  on public.custom_list_items for all
+  using (
+    exists (
+      select 1 from public.custom_lists
+      where custom_lists.id = custom_list_items.custom_list_id
+      and custom_lists.user_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.custom_lists
+      where custom_lists.id = custom_list_items.custom_list_id
+      and custom_lists.user_id = auth.uid()
+    )
+  );
 
 -- 3. twitch_auth_cache: fila unica con el token vigente de IGDB
 -- Sin RLS abierta: solo el service_role (usado por la Edge Function) puede leer/escribir.

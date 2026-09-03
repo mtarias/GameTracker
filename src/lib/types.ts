@@ -72,3 +72,15 @@ export const SORT_LABELS: Record<SortMode, string> = {
 
 export type ViewMode = "grid" | "compact" | "list";
 
+export interface CustomList {
+  id: string;
+  user_id: string;
+  name: string;
+  icon: string;
+  color: string;
+  position: number;
+  is_builtin: boolean;
+  created_at: string;
+}
+
+

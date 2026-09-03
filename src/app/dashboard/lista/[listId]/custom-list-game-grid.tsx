@@ -10,13 +10,15 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, rectSortingStrategy } from "@dnd-kit/sortable";
-import { Pencil, Check, LayoutGrid, Grid3x3, List as ListIcon } from "lucide-react";
-import { SORT_LABELS, type GameStatus, type SortMode, type UserGame, type ViewMode } from "@/lib/types";
-import { reorderGames, removeGame } from "./actions";
-import SortableGameCard from "./sortable-game-card";
+import { useRouter } from "next/navigation";
+import { Pencil, Check, LayoutGrid, Grid3x3, List as ListIcon, Trash2 } from "lucide-react";
+import { SORT_LABELS, type SortMode, type UserGame, type ViewMode } from "@/lib/types";
+import { reorderCustomListItems, toggleCustomListItem, deleteCustomList } from "../../actions";
+import SortableGameCard from "../../sortable-game-card";
 
 interface Props {
-  status: GameStatus;
+  customListId: string;
+  isBuiltin: boolean;
   games: UserGame[];
 }
 
@@ -69,7 +71,8 @@ function sortGames(games: UserGame[], mode: SortMode): UserGame[] {
   }
 }
 
-export default function StatusGameGrid({ status, games }: Props) {
+export default function CustomListGameGrid({ customListId, isBuiltin, games }: Props) {
+  const router = useRouter();
   const [sortMode, setSortMode] = useState<SortMode>("custom");
   const [viewMode, setViewMode] = useState<ViewMode>("compact");
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
@@ -109,14 +112,22 @@ export default function StatusGameGrid({ status, games }: Props) {
 
     setOrderedGames(newOrder);
     startTransition(() => {
-      reorderGames({ status, orderedIds: newOrder.map((g) => g.id) });
+      reorderCustomListItems(customListId, newOrder.map((g) => g.id));
     });
   }
 
   function handleRemove(id: string) {
     setOrderedGames((prev) => prev.filter((g) => g.id !== id));
     startTransition(() => {
-      removeGame(id);
+      toggleCustomListItem(customListId, id, true);
+    });
+  }
+
+  function handleDeleteList() {
+    if (!confirm("¿Borrar esta lista? Los juegos no se eliminan de tu colección.")) return;
+    startTransition(async () => {
+      await deleteCustomList(customListId);
+      router.push("/dashboard");
     });
   }
 
@@ -182,6 +193,16 @@ export default function StatusGameGrid({ status, games }: Props) {
           {editMode ? "Listo" : "Editar"}
         </button>
       </div>
+
+      {!isBuiltin && (
+        <button
+          onClick={handleDeleteList}
+          className="flex items-center gap-1 text-sm text-red-400"
+        >
+          <Trash2 size={14} />
+          Borrar esta lista
+        </button>
+      )}
 
       {orderedGames.length === 0 ? (
         <p className="mt-8 text-neutral-500">No hay juegos en esta lista todavía.</p>
