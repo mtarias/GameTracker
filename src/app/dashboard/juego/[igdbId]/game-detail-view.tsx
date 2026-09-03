@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { getIgdbGameDetail, type IgdbGameDetail } from "@/lib/igdb";
 import { STATUS_LABELS, STATUS_ORDER, type GameStatus, type UserGame } from "@/lib/types";
 import { STATUS_ICONS } from "@/lib/status-icons";
@@ -24,17 +25,22 @@ export default function GameDetailView({ igdbId, existingGame }: Props) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [descExpanded, setDescExpanded] = useState(false);
   const [activeShot, setActiveShot] = useState(0);
+  const [entryId, setEntryId] = useState<string | null>(existingGame?.id ?? null);
+  const [currentStatus, setCurrentStatus] = useState<GameStatus | null>(existingGame?.status ?? null);
+  const [applyingStatus, setApplyingStatus] = useState<GameStatus | null>(null);
   const [endDate, setEndDate] = useState(existingGame?.end_date ?? "");
   const [storyLength, setStoryLength] = useState(
     existingGame?.story_length_hours?.toString() ?? "",
   );
-  const [isPending, startTransition] = useTransition();
+  const [savingCompletion, setSavingCompletion] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [, startTransition] = useTransition();
   const carouselRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     getIgdbGameDetail(igdbId)
       .then(setDetail)
-      .catch(() => setLoadError("No se pudo cargar el detalle desde IGDB."));
+      .catch((err) => setLoadError(err?.message ?? "No se pudo cargar el detalle desde IGDB."));
   }, [igdbId]);
 
   function scrollToShot(index: number) {
@@ -44,37 +50,54 @@ export default function GameDetailView({ igdbId, existingGame }: Props) {
   }
 
   function handleSelectStatus(status: GameStatus) {
-    if (!detail) return;
+    if (!detail || status === currentStatus) return;
+
+    setApplyingStatus(status);
+    const previousStatus = currentStatus;
+    setCurrentStatus(status);
+
     startTransition(async () => {
-      if (existingGame) {
-        await moveGameStatus(existingGame.id, status);
-      } else {
-        await addGame({
-          igdb_id: detail.igdb_id,
-          title: detail.title,
-          cover_url: detail.cover_url,
-          release_date: detail.release_date,
-          status,
-        });
+      try {
+        if (entryId) {
+          await moveGameStatus(entryId, status);
+        } else {
+          const inserted = await addGame({
+            igdb_id: detail.igdb_id,
+            title: detail.title,
+            cover_url: detail.cover_url,
+            release_date: detail.release_date,
+            status,
+          });
+          setEntryId(inserted.id);
+        }
+      } catch {
+        setCurrentStatus(previousStatus);
+      } finally {
+        setApplyingStatus(null);
       }
-      router.push(`/dashboard/${status}`);
     });
   }
 
   function handleSaveCompletion() {
-    if (!existingGame) return;
+    if (!entryId) return;
+    setSavingCompletion(true);
     startTransition(async () => {
-      await updateGameCompletion(existingGame.id, {
-        end_date: endDate || null,
-        story_length_hours: storyLength ? Number(storyLength) : null,
-      });
+      try {
+        await updateGameCompletion(entryId, {
+          end_date: endDate || null,
+          story_length_hours: storyLength ? Number(storyLength) : null,
+        });
+      } finally {
+        setSavingCompletion(false);
+      }
     });
   }
 
   function handleRemove() {
-    if (!existingGame) return;
+    if (!entryId) return;
+    setRemoving(true);
     startTransition(async () => {
-      await removeGame(existingGame.id);
+      await removeGame(entryId);
       router.push("/dashboard");
     });
   }
@@ -88,7 +111,6 @@ export default function GameDetailView({ igdbId, existingGame }: Props) {
   }
 
   const embedUrl = detail.video_url ? youtubeEmbedUrl(detail.video_url) : null;
-  const currentStatus = existingGame?.status;
 
   return (
     <div className="space-y-6">
@@ -186,26 +208,38 @@ export default function GameDetailView({ igdbId, existingGame }: Props) {
           {STATUS_ORDER.map((status) => {
             const Icon = STATUS_ICONS[status];
             const active = status === currentStatus;
+            const applying = applyingStatus === status;
             return (
               <button
                 key={status}
-                disabled={isPending}
+                disabled={applyingStatus !== null}
                 onClick={() => handleSelectStatus(status)}
-                className={`flex flex-col items-center gap-1 rounded-md border py-2 text-xs ${
+                className={`flex flex-col items-center gap-1 rounded-md border py-2 text-xs disabled:opacity-60 ${
                   active
                     ? "border-neutral-100 bg-neutral-100 text-neutral-900"
                     : "border-neutral-700 text-neutral-300"
                 }`}
               >
-                <Icon size={18} />
+                {applying ? <Loader2 size={18} className="animate-spin" /> : <Icon size={18} />}
                 {STATUS_LABELS[status]}
               </button>
             );
           })}
         </div>
+
+        {entryId && (
+          <button
+            onClick={handleRemove}
+            disabled={removing}
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-md border border-red-900 px-3 py-2 text-sm text-red-400 disabled:opacity-60"
+          >
+            {removing && <Loader2 size={14} className="animate-spin" />}
+            Quitar de mi colección
+          </button>
+        )}
       </div>
 
-      {existingGame && (
+      {entryId && (
         <div className="space-y-3 rounded-md border border-neutral-800 p-3">
           <p className="text-sm text-neutral-500">Datos opcionales</p>
 
@@ -233,18 +267,11 @@ export default function GameDetailView({ igdbId, existingGame }: Props) {
 
           <button
             onClick={handleSaveCompletion}
-            disabled={isPending}
-            className="w-full rounded-md bg-neutral-100 px-3 py-2 text-sm font-medium text-neutral-900"
+            disabled={savingCompletion}
+            className="flex w-full items-center justify-center gap-2 rounded-md bg-neutral-100 px-3 py-2 text-sm font-medium text-neutral-900 disabled:opacity-60"
           >
+            {savingCompletion && <Loader2 size={14} className="animate-spin" />}
             Guardar
-          </button>
-
-          <button
-            onClick={handleRemove}
-            disabled={isPending}
-            className="w-full rounded-md border border-red-900 px-3 py-2 text-sm text-red-400"
-          >
-            Quitar de mi colección
           </button>
         </div>
       )}

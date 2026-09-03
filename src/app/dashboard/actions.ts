@@ -31,21 +31,26 @@ export async function addGame(params: {
 
   const nextOrder = (last?.custom_order ?? -1) + 1;
 
-  const { error } = await supabase.from("user_games").insert({
-    user_id: user.id,
-    igdb_id: params.igdb_id,
-    title: params.title,
-    cover_url: params.cover_url,
-    release_date: params.release_date,
-    status: params.status,
-    custom_order: nextOrder,
-  });
+  const { data: inserted, error } = await supabase
+    .from("user_games")
+    .insert({
+      user_id: user.id,
+      igdb_id: params.igdb_id,
+      title: params.title,
+      cover_url: params.cover_url,
+      release_date: params.release_date,
+      status: params.status,
+      custom_order: nextOrder,
+    })
+    .select()
+    .single();
 
   if (error) {
     throw new Error(error.message);
   }
 
   revalidatePath("/dashboard");
+  return inserted;
 }
 
 export async function reorderGames(params: { status: GameStatus; orderedIds: string[] }) {
