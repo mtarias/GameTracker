@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { Loader2, Star } from "lucide-react";
 import { getIgdbGameDetail, type IgdbGameDetail } from "@/lib/igdb";
 import { STATUS_LABELS, STATUS_ORDER, type CustomList, type GameStatus, type UserGame } from "@/lib/types";
@@ -30,7 +29,6 @@ function youtubeEmbedUrl(videoUrl: string) {
 }
 
 export default function GameDetailView({ igdbId, existingGame, customLists, initialMemberships }: Props) {
-  const router = useRouter();
   const [detail, setDetail] = useState<IgdbGameDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [descExpanded, setDescExpanded] = useState(false);
@@ -113,8 +111,16 @@ export default function GameDetailView({ igdbId, existingGame, customLists, init
     if (!entryId) return;
     setRemoving(true);
     startTransition(async () => {
-      await removeGame(entryId);
-      router.push("/dashboard");
+      try {
+        await removeGame(entryId);
+        setEntryId(null);
+        setCurrentStatus(null);
+        setMemberships(new Set());
+        setEndDate("");
+        setStoryLength("");
+      } finally {
+        setRemoving(false);
+      }
     });
   }
 

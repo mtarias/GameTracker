@@ -1,7 +1,6 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import type { UserGame } from "@/lib/types";
+import BackButton from "../../back-button";
 import GameDetailView from "./game-detail-view";
 
 interface Props {
@@ -41,10 +40,7 @@ export default async function GameDetailPage({ params }: Props) {
 
   return (
     <main className="px-4 py-6">
-      <Link href="/dashboard" className="mb-4 inline-flex items-center gap-1 text-sm text-neutral-400">
-        <ArrowLeft size={16} />
-        Volver
-      </Link>
+      <BackButton />
       <GameDetailView
         igdbId={igdbIdNum}
         existingGame={existingGame as UserGame | null}
