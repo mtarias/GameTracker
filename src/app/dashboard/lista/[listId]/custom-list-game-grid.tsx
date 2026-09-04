@@ -13,11 +13,12 @@ import { SortableContext, arrayMove, rectSortingStrategy } from "@dnd-kit/sortab
 import { useRouter } from "next/navigation";
 import { Pencil, Check, LayoutGrid, Grid3x3, List as ListIcon, Trash2 } from "lucide-react";
 import { SORT_LABELS, type SortMode, type UserGame, type ViewMode } from "@/lib/types";
-import { reorderCustomListItems, toggleCustomListItem, deleteCustomList } from "../../actions";
+import { reorderCustomListItems, toggleCustomListItem, deleteCustomList, renameCustomList } from "../../actions";
 import SortableGameCard from "../../sortable-game-card";
 
 interface Props {
   customListId: string;
+  listName: string;
   isBuiltin: boolean;
   games: UserGame[];
 }
@@ -71,12 +72,15 @@ function sortGames(games: UserGame[], mode: SortMode): UserGame[] {
   }
 }
 
-export default function CustomListGameGrid({ customListId, isBuiltin, games }: Props) {
+export default function CustomListGameGrid({ customListId, listName, isBuiltin, games }: Props) {
   const router = useRouter();
   const [sortMode, setSortMode] = useState<SortMode>("custom");
   const [viewMode, setViewMode] = useState<ViewMode>("compact");
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [name, setName] = useState(listName);
+  const [renameError, setRenameError] = useState<string | null>(null);
   const [orderedGames, setOrderedGames] = useState<UserGame[]>([]);
   const [, startTransition] = useTransition();
 
@@ -128,6 +132,19 @@ export default function CustomListGameGrid({ customListId, isBuiltin, games }: P
     startTransition(async () => {
       await deleteCustomList(customListId);
       router.push("/dashboard");
+    });
+  }
+
+  function handleRenameList(event: React.FormEvent) {
+    event.preventDefault();
+    setRenameError(null);
+    startTransition(async () => {
+      try {
+        await renameCustomList(customListId, name);
+        setIsRenaming(false);
+      } catch (error) {
+        setRenameError(error instanceof Error ? error.message : "No se pudo renombrar la lista.");
+      }
     });
   }
 
@@ -195,13 +212,39 @@ export default function CustomListGameGrid({ customListId, isBuiltin, games }: P
       </div>
 
       {!isBuiltin && (
-        <button
-          onClick={handleDeleteList}
-          className="flex items-center gap-1 text-sm text-red-400"
-        >
-          <Trash2 size={14} />
-          Borrar esta lista
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          {isRenaming ? (
+            <form onSubmit={handleRenameList} className="flex flex-wrap items-center gap-2">
+              <input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                aria-label="Nombre de la lista"
+                autoFocus
+                className="rounded-md border border-neutral-700 bg-neutral-800 px-2 py-1 text-sm text-neutral-100"
+              />
+              <button type="submit" className="text-sm text-neutral-200">Guardar</button>
+              <button type="button" onClick={() => { setName(listName); setIsRenaming(false); }} className="text-sm text-neutral-500">
+                Cancelar
+              </button>
+            </form>
+          ) : (
+            <button
+              onClick={() => setIsRenaming(true)}
+              className="flex items-center gap-1 text-sm text-neutral-300"
+            >
+              <Pencil size={14} />
+              Renombrar lista
+            </button>
+          )}
+          <button
+            onClick={handleDeleteList}
+            className="flex items-center gap-1 text-sm text-red-400"
+          >
+            <Trash2 size={14} />
+            Borrar esta lista
+          </button>
+          {renameError && <p className="basis-full text-sm text-red-400">{renameError}</p>}
+        </div>
       )}
 
       {orderedGames.length === 0 ? (

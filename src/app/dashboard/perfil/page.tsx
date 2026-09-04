@@ -67,7 +67,7 @@ export default async function PrivateProfilePage() {
           <Stat label="Jugando" value={counts.playing} icon={<Gamepad2 size={16} />} />
         </div>
         <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-neutral-400 sm:grid-cols-3">
-          {STATUS_ORDER.map((status) => (
+          {STATUS_ORDER.filter((status) => status !== "completed" && status !== "playing").map((status) => (
             <div key={status} className="flex justify-between border-b border-neutral-800 py-1">
               <span>{STATUS_LABELS[status]}</span>
               <span className="text-neutral-200">{counts[status]}</span>
@@ -83,8 +83,8 @@ export default async function PrivateProfilePage() {
         {userGames.length === 0 ? (
           <p className="text-sm text-neutral-500">Todavía no has agregado juegos.</p>
         ) : (
-          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-            {userGames.slice(0, 5).map((game) => (
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-6">
+            {userGames.slice(0, 6).map((game) => (
               <li key={game.id}>
                 <Link href={`/dashboard/juego/${game.igdb_id}`} className="block">
                   {game.cover_url ? (

@@ -48,7 +48,12 @@ export default async function CustomListPage({ params }: Props) {
       {error ? (
         <p className="text-red-400">Error al cargar: {error.message}</p>
       ) : (
-        <CustomListGameGrid customListId={listId} isBuiltin={list.is_builtin} games={games} />
+        <CustomListGameGrid
+          customListId={listId}
+          listName={list.name}
+          isBuiltin={list.is_builtin}
+          games={games}
+        />
       )}
     </main>
   );

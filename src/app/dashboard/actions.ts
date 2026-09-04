@@ -271,6 +271,36 @@ export async function deleteCustomList(id: string) {
   revalidatePath("/dashboard");
 }
 
+export async function renameCustomList(id: string, name: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("No autenticado");
+  }
+
+  const trimmedName = name.trim();
+  if (!trimmedName) {
+    throw new Error("El nombre no puede estar vacío");
+  }
+
+  const { error } = await supabase
+    .from("custom_lists")
+    .update({ name: trimmedName })
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .eq("is_builtin", false);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/dashboard/lista/${id}`);
+}
+
 export async function reorderHomeCards(
   orderedCards: { type: "status" | "custom_list"; key: string }[],
 ) {
