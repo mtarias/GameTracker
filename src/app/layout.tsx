@@ -15,7 +15,6 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "GameTracker",
   description: "Mi colección personal de videojuegos.",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "GameTracker" },
   icons: {
     icon: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
     apple: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],

@@ -1,6 +1,11 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import BottomNav from "./bottom-nav";
+
+export const metadata: Metadata = {
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "GameTracker" },
+};
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
