@@ -21,6 +21,7 @@ interface Props {
   existingGame: UserGame | null;
   customLists: CustomList[];
   initialMemberships: string[];
+  readOnly?: boolean;
 }
 
 function youtubeEmbedUrl(videoUrl: string) {
@@ -28,7 +29,13 @@ function youtubeEmbedUrl(videoUrl: string) {
   return id ? `https://www.youtube.com/embed/${id}` : null;
 }
 
-export default function GameDetailView({ igdbId, existingGame, customLists, initialMemberships }: Props) {
+export default function GameDetailView({
+  igdbId,
+  existingGame,
+  customLists,
+  initialMemberships,
+  readOnly = false,
+}: Props) {
   const [detail, setDetail] = useState<IgdbGameDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [descExpanded, setDescExpanded] = useState(false);
@@ -206,7 +213,7 @@ export default function GameDetailView({ igdbId, existingGame, customLists, init
         )}
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-semibold">{detail.title}</h1>
-          {favoritesList && (
+          {!readOnly && favoritesList && (
             <button
               onClick={handleToggleFavorite}
               disabled={applyingListId === favoritesList.id}
@@ -294,7 +301,7 @@ export default function GameDetailView({ igdbId, existingGame, customLists, init
         </div>
       )}
 
-      <div>
+      {!readOnly && <div>
         <p className="mb-2 text-sm text-neutral-500">
           {currentStatus ? "Mover a otra lista" : "Agregar a una lista"}
         </p>
@@ -331,9 +338,9 @@ export default function GameDetailView({ igdbId, existingGame, customLists, init
             Quitar de mi colección
           </button>
         )}
-      </div>
+      </div>}
 
-      {otherLists.length > 0 && (
+      {!readOnly && otherLists.length > 0 && (
         <div>
           <p className="mb-2 text-sm text-neutral-500">Mis listas</p>
           <div className="flex flex-wrap gap-2">
@@ -360,7 +367,7 @@ export default function GameDetailView({ igdbId, existingGame, customLists, init
         </div>
       )}
 
-      {entryId && (
+      {!readOnly && entryId && (
         <div className="space-y-3 rounded-md border border-neutral-800 p-3">
           <p className="text-sm text-neutral-500">Datos opcionales</p>
 
@@ -375,7 +382,7 @@ export default function GameDetailView({ igdbId, existingGame, customLists, init
           </label>
 
           <label className="block text-sm">
-            Duración de historia (horas)
+            Horas jugadas
             <input
               type="number"
               min="0"

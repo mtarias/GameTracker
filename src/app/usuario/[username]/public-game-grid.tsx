@@ -2,15 +2,17 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import type { UserGame } from "@/lib/types";
 
 type SortMode = "custom" | "alphabetical";
 
 interface Props {
   games: UserGame[];
+  username: string;
 }
 
-export default function PublicGameGrid({ games }: Props) {
+export default function PublicGameGrid({ games, username }: Props) {
   const [sortMode, setSortMode] = useState<SortMode>("custom");
 
   const sortedGames = useMemo(() => {
@@ -45,19 +47,21 @@ export default function PublicGameGrid({ games }: Props) {
         <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
           {sortedGames.map((game) => (
             <li key={game.id} className="overflow-hidden rounded-md bg-neutral-900">
-              {game.cover_url ? (
-                <Image
-                  src={game.cover_url}
-                  alt={game.title}
-                  width={264}
-                  height={352}
-                  className="aspect-[3/4] w-full object-cover"
-                />
-              ) : (
-                <div className="flex aspect-[3/4] w-full items-center justify-center text-xs text-neutral-600">
-                  Sin carátula
-                </div>
-              )}
+              <Link href={`/usuario/${username}/juego/${game.igdb_id}`} className="block">
+                {game.cover_url ? (
+                  <Image
+                    src={game.cover_url}
+                    alt={game.title}
+                    width={264}
+                    height={352}
+                    className="aspect-[3/4] w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex aspect-[3/4] w-full items-center justify-center text-xs text-neutral-600">
+                    Sin carátula
+                  </div>
+                )}
+              </Link>
             </li>
           ))}
         </ul>

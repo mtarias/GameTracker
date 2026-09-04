@@ -12,7 +12,7 @@ interface Props {
 const items = (username: string) => [
   { href: "/dashboard", label: "Inicio", icon: Home },
   { href: "/dashboard/buscar", label: "Buscar", icon: Search },
-  { href: `/usuario/${username}`, label: "Mi perfil", icon: User },
+  { href: "/dashboard/perfil", label: "Mi Perfil", icon: User },
 ];
 
 export default function BottomNav({ username }: Props) {

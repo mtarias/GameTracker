@@ -87,7 +87,7 @@ export const SORT_LABELS: Record<SortMode, string> = {
   alphabetical_desc: "Alfabético (Z-A)",
   recently_completed: "Completado más reciente",
   release_date: "Fecha de lanzamiento",
-  story_length: "Duración de historia",
+  story_length: "Horas jugadas",
 };
 
 export type ViewMode = "grid" | "compact" | "list";

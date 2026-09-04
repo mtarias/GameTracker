@@ -62,7 +62,7 @@ export default async function PublicCustomListPage({ params }: Props) {
         </Link>
         <h1 className="mb-4 text-xl font-semibold">{list.name}</h1>
 
-        <PublicGameGrid games={games} />
+        <PublicGameGrid username={username} games={games} />
       </div>
 
       {isOwner && <BottomNav username={username} />}
