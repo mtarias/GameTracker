@@ -150,7 +150,7 @@ export default async function PublicProfilePage({ params }: Props) {
         )}
       </div>
 
-      {isOwner && <BottomNav username={username} />}
+      {isOwner && <BottomNav />}
     </main>
   );
 }

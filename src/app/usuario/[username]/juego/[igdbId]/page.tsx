@@ -46,7 +46,7 @@ export default async function PublicGameDetailPage({ params }: Props) {
           readOnly
         />
       </div>
-      {user?.id === profile.id && <BottomNav username={username} />}
+      {user?.id === profile.id && <BottomNav />}
     </main>
   );
 }

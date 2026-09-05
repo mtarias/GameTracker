@@ -5,8 +5,12 @@
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   username text unique not null,
+  include_abandoned_in_total boolean not null default false,
   created_at timestamptz not null default now()
 );
+
+alter table public.profiles
+  add column if not exists include_abandoned_in_total boolean not null default false;
 
 alter table public.profiles enable row level security;
 

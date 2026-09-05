@@ -13,7 +13,7 @@ export default async function PrivateProfilePage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("username")
+    .select("username, include_abandoned_in_total")
     .eq("id", user!.id)
     .maybeSingle();
 
@@ -24,6 +24,9 @@ export default async function PrivateProfilePage() {
     .order("created_at", { ascending: false });
 
   const userGames = (games ?? []) as UserGame[];
+  const totalGames = profile?.include_abandoned_in_total
+    ? userGames.length
+    : userGames.filter((game) => game.status !== "abandoned").length;
   const { data: favoritesList } = await supabase
     .from("custom_lists")
     .select("id")
@@ -84,7 +87,7 @@ export default async function PrivateProfilePage() {
           Resumen de colección
         </h2>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <Stat label="Juegos" value={userGames.length} icon={<Gamepad2 size={16} />} />
+          <Stat label="Juegos" value={totalGames} icon={<Gamepad2 size={16} />} />
           <Stat label="Horas jugadas" value={totalHours} icon={<History size={16} />} />
           <Stat label="Completados" value={counts.completed} icon={<Star size={16} />} />
           <Stat label="Jugando" value={counts.playing} icon={<Gamepad2 size={16} />} />

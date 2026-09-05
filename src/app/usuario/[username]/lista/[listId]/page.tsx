@@ -68,7 +68,7 @@ export default async function PublicCustomListPage({ params }: Props) {
         <PublicGameGrid username={username} games={games} />
       </div>
 
-      {isOwner && <BottomNav username={username} />}
+      {isOwner && <BottomNav />}
     </main>
   );
 }

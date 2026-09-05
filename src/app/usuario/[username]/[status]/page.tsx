@@ -56,7 +56,7 @@ export default async function PublicStatusPage({ params }: Props) {
         <PublicGameGrid username={username} games={(games ?? []) as UserGame[]} />
       </div>
 
-      {isOwner && <BottomNav username={username} />}
+      {isOwner && <BottomNav />}
     </main>
   );
 }
