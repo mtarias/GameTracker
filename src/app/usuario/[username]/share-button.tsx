@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { Share2, Check } from "lucide-react";
 
-export default function ShareButton() {
+export default function ShareButton({ publicUrl }: { publicUrl: string }) {
   const [copied, setCopied] = useState(false);
 
   async function handleShare() {
-    const url = window.location.href;
+    const url = new URL(publicUrl, window.location.origin).toString();
 
     if (navigator.share) {
       try {

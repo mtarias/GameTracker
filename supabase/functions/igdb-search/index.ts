@@ -67,6 +67,16 @@ Deno.serve(async (req: Request) => {
     }
 
     const pageOffset = typeof offset === "number" && offset > 0 ? offset : 0;
+    const trimmedSearch = search.trim();
+    const isIgdbId = /^\d+$/.test(trimmedSearch);
+    const igdbId = isIgdbId ? Number(trimmedSearch) : null;
+
+    if (igdbId !== null && (!Number.isSafeInteger(igdbId) || igdbId <= 0)) {
+      return new Response(JSON.stringify({ error: "Invalid IGDB ID" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const clientId = Deno.env.get("TWITCH_CLIENT_ID")!;
     const clientSecret = Deno.env.get("TWITCH_CLIENT_SECRET")!;
@@ -79,12 +89,13 @@ Deno.serve(async (req: Request) => {
     const accessToken = await getTwitchToken(supabaseAdmin, clientId, clientSecret);
 
     // Escapar comillas dobles del input para evitar romper la query Apicalypse.
-    const safeSearch = search.replace(/"/g, '\\"');
+    const safeSearch = trimmedSearch.replace(/"/g, '\\"');
     // Se pide de mas (40) porque el filtro de categoria se aplica despues, en JS.
-    const fetchLimit = includeDlc ? 20 : 40;
-    const apicalypseQuery =
-      `search "${safeSearch}"; fields name,cover.url,first_release_date,platforms.name,category; ` +
-      `limit ${fetchLimit}; offset ${pageOffset};`;
+    const fetchLimit = isIgdbId ? 1 : includeDlc ? 20 : 40;
+    const apicalypseQuery = igdbId !== null
+      ? `where id = ${igdbId}; fields name,cover.url,first_release_date,platforms.name,category; limit 1;`
+      : `search "${safeSearch}"; fields name,cover.url,first_release_date,platforms.name,category; ` +
+        `limit ${fetchLimit}; offset ${pageOffset};`;
 
     const igdbResponse = await fetch("https://api.igdb.com/v4/games", {
       method: "POST",

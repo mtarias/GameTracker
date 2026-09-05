@@ -110,7 +110,7 @@ export default async function PublicProfilePage({ params }: Props) {
       <header className="mx-auto flex max-w-2xl flex-col items-center gap-2 text-center">
         <p className="text-sm uppercase tracking-wider text-neutral-500">Colección de</p>
         <h1 className="text-2xl font-semibold">{profile.username}</h1>
-        {isOwner && <ShareButton />}
+        {isOwner && <ShareButton publicUrl={`/usuario/${profile.username}`} />}
       </header>
 
       <div className="mx-auto mt-8 max-w-2xl">

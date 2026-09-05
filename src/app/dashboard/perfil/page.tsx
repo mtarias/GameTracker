@@ -24,6 +24,29 @@ export default async function PrivateProfilePage() {
     .order("created_at", { ascending: false });
 
   const userGames = (games ?? []) as UserGame[];
+  const { data: favoritesList } = await supabase
+    .from("custom_lists")
+    .select("id")
+    .eq("user_id", user!.id)
+    .eq("is_builtin", true)
+    .maybeSingle();
+
+  const { data: favoriteItems } = favoritesList
+    ? await supabase
+        .from("custom_list_items")
+        .select("custom_order, user_games(*)")
+        .eq("custom_list_id", favoritesList.id)
+        .order("custom_order", { ascending: true })
+        .limit(6)
+    : { data: [] };
+
+  const favoriteGames = (favoriteItems ?? [])
+    .map((item) => {
+      const row = item as unknown as { custom_order: number; user_games: UserGame | null };
+      return row.user_games;
+    })
+    .filter((game): game is UserGame => game !== null);
+
   const counts = STATUS_ORDER.reduce(
     (acc, status) => ({ ...acc, [status]: 0 }),
     {} as Record<GameStatus, number>,
@@ -51,7 +74,7 @@ export default async function PrivateProfilePage() {
             <ExternalLink size={16} />
             Ver perfil público
           </Link>
-          <ShareButton />
+          {profile?.username && <ShareButton publicUrl={`/usuario/${profile.username}`} />}
         </div>
       </header>
 
@@ -76,15 +99,15 @@ export default async function PrivateProfilePage() {
         </div>
       </section>
 
-      <section aria-labelledby="recent-heading">
-        <h2 id="recent-heading" className="mb-3 text-sm font-medium text-neutral-300">
-          Agregados recientemente
+      <section aria-labelledby="favorites-heading">
+        <h2 id="favorites-heading" className="mb-3 text-sm font-medium text-neutral-300">
+          Favoritos
         </h2>
-        {userGames.length === 0 ? (
-          <p className="text-sm text-neutral-500">Todavía no has agregado juegos.</p>
+        {favoriteGames.length === 0 ? (
+          <p className="text-sm text-neutral-500">Todavía no tienes juegos favoritos.</p>
         ) : (
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-6">
-            {userGames.slice(0, 6).map((game) => (
+            {favoriteGames.map((game) => (
               <li key={game.id}>
                 <Link href={`/dashboard/juego/${game.igdb_id}`} className="block">
                   {game.cover_url ? (
