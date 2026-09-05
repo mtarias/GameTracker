@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { BarChart3, Gamepad2, History, Star } from "lucide-react";
+import { BarChart3, Gamepad2, History } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { STATUS_LABELS, STATUS_ORDER, STATUS_COLOR_HEX, type GameStatus, type HomeCard } from "@/lib/types";
 import { getHomeCardIcon } from "@/lib/home-card-icon";
@@ -32,7 +32,7 @@ export default async function PublicProfilePage({ params }: Props) {
 
   const { data: games } = await supabase
     .from("user_games")
-    .select("status, story_length_hours, end_date, title")
+    .select("status, story_length_hours")
     .eq("user_id", profile.id);
 
   const counts = STATUS_ORDER.reduce(
@@ -46,10 +46,6 @@ export default async function PublicProfilePage({ params }: Props) {
     (total, game) => total + (game.story_length_hours ?? 0),
     0,
   );
-  const latestCompleted = (games ?? [])
-    .filter((game) => game.end_date)
-    .sort((a, b) => (b.end_date ?? "").localeCompare(a.end_date ?? ""))[0];
-
   const { data: customLists } = await supabase
     .from("custom_lists")
     .select("*")
@@ -123,26 +119,10 @@ export default async function PublicProfilePage({ params }: Props) {
             <BarChart3 size={16} />
             Resumen de colección
           </h2>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:max-w-sm">
             <PublicStat label="Juegos" value={(games ?? []).length} icon={<Gamepad2 size={16} />} />
             <PublicStat label="Horas jugadas" value={totalHours} icon={<History size={16} />} />
-            <PublicStat label="Completados" value={counts.completed} icon={<Star size={16} />} />
-            <PublicStat label="Jugando" value={counts.playing} icon={<Gamepad2 size={16} />} />
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-neutral-400 sm:grid-cols-4">
-            {STATUS_ORDER.filter((status) => status !== "completed" && status !== "playing").map((status) => (
-              <div key={status} className="flex justify-between border-b border-neutral-800 py-1">
-                <span>{STATUS_LABELS[status]}</span>
-                <span className="text-neutral-200">{counts[status]}</span>
-              </div>
-            ))}
-          </div>
-          {latestCompleted && (
-            <p className="mt-4 text-sm text-neutral-400">
-              Último juego completado: <span className="text-neutral-200">{latestCompleted.title}</span>
-              <span className="text-neutral-500"> · {latestCompleted.end_date}</span>
-            </p>
-          )}
         </section>
 
         {cards.length === 0 ? (
@@ -160,7 +140,7 @@ export default async function PublicProfilePage({ params }: Props) {
                   >
                     <Icon size={28} color={card.color} />
                     <span className="text-lg font-medium">
-                      {card.label}
+                      {card.label} <span className="opacity-60">{card.count}</span>
                     </span>
                   </Link>
                 </li>

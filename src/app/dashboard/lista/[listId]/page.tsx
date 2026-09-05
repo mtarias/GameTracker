@@ -30,11 +30,14 @@ export default async function CustomListPage({ params }: Props) {
 
   const { data: items, error } = await supabase
     .from("custom_list_items")
-    .select("user_games(*)")
+    .select("custom_order, user_games(*)")
     .eq("custom_list_id", listId);
 
   const games = (items ?? [])
-    .map((item) => (item as unknown as { user_games: UserGame | null }).user_games)
+    .map((item) => {
+      const row = item as unknown as { custom_order: number; user_games: UserGame | null };
+      return row.user_games ? { ...row.user_games, custom_order: row.custom_order } : null;
+    })
     .filter((g): g is UserGame => g !== null);
 
   return (
